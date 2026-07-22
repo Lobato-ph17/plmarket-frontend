@@ -30,21 +30,13 @@ function App() {
       });
   }, []);
 
-  // Categorias do e-commerce
+  // Categorias sincronizadas com o banco de dados
   const categorias = ['Todos', 'Periféricos', 'Monitores', 'Hardware'];
 
-  const obterCategoriaDoProduto = (produto) => {
-    const nome = produto.nome.toLowerCase();
-    if (nome.includes('teclado') || nome.includes('mouse')) return 'Periféricos';
-    if (nome.includes('monitor')) return 'Monitores';
-    return 'Hardware';
-  };
-
-  // Lógica de Filtragem (Busca + Categoria)
+  // Lógica de Filtragem direta pela propriedade da API
   const produtosFiltrados = produtos.filter(produto => {
     const matchesBusca = produto.nome.toLowerCase().includes(busca.toLowerCase());
-    const categoriaDoProduto = obterCategoriaDoProduto(produto);
-    const matchesCategoria = categoriaAtiva === 'Todos' || categoriaDoProduto === categoriaAtiva;
+    const matchesCategoria = categoriaAtiva === 'Todos' || produto.categoria === categoriaAtiva;
     return matchesBusca && matchesCategoria;
   });
 
@@ -196,8 +188,9 @@ function App() {
                     alt={produto.nome} 
                     className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500"
                   />
+                  {/* Badge vinda diretamente da propriedade do Banco */}
                   <span className="absolute top-4 left-4 bg-zinc-950/80 backdrop-blur-md border border-zinc-800 text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md text-purple-400">
-                    {obterCategoriaDoProduto(produto)}
+                    {produto.categoria || 'Geral'}
                   </span>
                 </div>
 
@@ -213,7 +206,7 @@ function App() {
                   
                   <div className="flex justify-between items-center mt-6 pt-4 border-t border-zinc-900">
                     <span className="text-xl font-bold text-zinc-100">
-                      R$ {produto.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {produto.preco ? produto.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
                     </span>
                     <button 
                       onClick={() => adicionarAoCarrinho(produto)}
@@ -233,6 +226,7 @@ function App() {
         )}
       </main>
 
+      {/* PAINEL LATERAL DO CARRINHO */}
       <div className={`fixed inset-0 z-50 transition-visibility duration-300 ${carrinhoAberto ? 'visible' : 'invisible'}`}>
       
         <div 
@@ -240,10 +234,8 @@ function App() {
           className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${carrinhoAberto ? 'opacity-100' : 'opacity-0'}`}
         ></div>
 
-        {/* Painel do Carrinho */}
         <div className={`absolute right-0 top-0 bottom-0 w-full max-w-md bg-zinc-900 border-l border-zinc-800 flex flex-col justify-between shadow-2xl transition-transform duration-300 transform ${carrinhoAberto ? 'translate-x-0' : 'translate-x-full'}`}>
           
-          {/* Topo do Carrinho */}
           <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-purple-500" />
@@ -257,7 +249,6 @@ function App() {
             </button>
           </div>
 
-          {/* Lista de Itens */}
           <div className="flex-grow p-6 overflow-y-auto space-y-6">
             {carrinho.length > 0 ? (
               carrinho.map(item => (
@@ -267,7 +258,7 @@ function App() {
                     <div>
                       <h4 className="text-sm font-semibold text-zinc-100 line-clamp-1">{item.nome}</h4>
                       <p className="text-xs text-purple-400 mt-1">
-                        R$ {item.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {item.preco ? item.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
                       </p>
                     </div>
 
@@ -311,7 +302,6 @@ function App() {
             )}
           </div>
 
-          {/* Rodapé do Carrinho (Resumo Financeiro) */}
           {carrinho.length > 0 && (
             <div className="p-6 border-t border-zinc-800 bg-zinc-950/50">
               <div className="space-y-3 mb-6">
