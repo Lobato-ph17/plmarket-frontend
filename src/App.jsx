@@ -9,7 +9,8 @@ import {
   X,
   Plus,
   Minus,
-  Trash2
+  Trash2,
+  PackagePlus
 } from 'lucide-react';
 
 function App() {
@@ -20,27 +21,55 @@ function App() {
   const [carrinho, setCarrinho] = useState([]);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
 
-  useEffect(() => {
+  // ESTADOS DA MODAL DE CADASTRO
+  const [modalAberta, setModalAberta] = useState(false);
+  const [novoProduto, setNovoProduto] = useState({
+    nome: '',
+    descricao: '',
+    preco: '',
+    imagemUrl: '',
+    categoria: 'Periféricos'
+  });
+
+  const buscarProdutos = () => {
     axios.get('http://localhost:8080/api/produtos')
-      .then(response => {
-        setProdutos(response.data);
-      })
-      .catch(error => {
-        console.error("Erro ao buscar produtos do backend:", error);
-      });
+      .then(response => setProdutos(response.data))
+      .catch(error => console.error("Erro ao buscar produtos:", error));
+  };
+
+  useEffect(() => {
+    buscarProdutos();
   }, []);
 
-  // Categorias sincronizadas com o banco de dados
   const categorias = ['Todos', 'Periféricos', 'Monitores', 'Hardware'];
 
-  // Lógica de Filtragem direta pela propriedade da API
+  // Submeter Novo Produto para a API
+  const handleCadastrarProduto = (e) => {
+    e.preventDefault();
+
+    const dadosEnvio = {
+      ...novoProduto,
+      preco: parseFloat(novoProduto.preco)
+    };
+
+    axios.post('http://localhost:8080/api/produtos', dadosEnvio)
+      .then(response => {
+        setProdutos(prev => [...prev, response.data]); // Adiciona na lista sem precisar recarregar
+        setModalAberta(false); // Fecha a modal
+        setNovoProduto({ nome: '', descricao: '', preco: '', imagemUrl: '', categoria: 'Periféricos' }); // Limpa form
+      })
+      .catch(error => {
+        console.error("Erro ao cadastrar produto:", error);
+        alert("Erro ao cadastrar produto. Verifique o console.");
+      });
+  };
+
   const produtosFiltrados = produtos.filter(produto => {
     const matchesBusca = produto.nome.toLowerCase().includes(busca.toLowerCase());
     const matchesCategoria = categoriaAtiva === 'Todos' || produto.categoria === categoriaAtiva;
     return matchesBusca && matchesCategoria;
   });
 
-  // Funções do Carrinho
   const adicionarAoCarrinho = (produto) => {
     setCarrinho(prev => {
       const itemExistente = prev.find(item => item.id === produto.id);
@@ -70,14 +99,13 @@ function App() {
     setCarrinho(prev => prev.filter(item => item.id !== id));
   };
 
-  // Cálculos do Carrinho
   const totalItensNoCarrinho = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
   const valorTotalCarrinho = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-purple-500/30 selection:text-purple-200">
       
-      {/* NAVBAR FIXA */}
+      {/* NAVBAR */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-zinc-950/80 border-b border-zinc-900/80 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
           
@@ -104,7 +132,16 @@ function App() {
             />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Botão Novo Produto */}
+            <button 
+              onClick={() => setModalAberta(true)}
+              className="flex items-center gap-2 bg-purple-600/10 border border-purple-500/30 hover:bg-purple-600 hover:text-white text-purple-400 text-xs font-semibold px-3 py-2 rounded-lg transition-all duration-300 cursor-pointer"
+            >
+              <PackagePlus className="w-4 h-4" />
+              <span className="hidden md:inline">Novo Produto</span>
+            </button>
+
             <button className="p-2 text-zinc-400 hover:text-zinc-100 transition-colors rounded-full hover:bg-zinc-900">
               <User className="w-5 h-5" />
             </button>
@@ -146,7 +183,7 @@ function App() {
         </div>
       </section>
 
-      {/* SEÇÃO DO CATÁLOGO */}
+      {/* CATÁLOGO */}
       <main id="catalogo" className="max-w-7xl mx-auto py-16 px-6 scroll-mt-20">
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 border-b border-zinc-900 pb-8">
@@ -184,11 +221,10 @@ function App() {
               >
                 <div className="relative overflow-hidden aspect-video">
                   <img 
-                    src={produto.imagemUrl} 
+                    src={produto.imagemUrl || 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?q=80&w=600&auto=format&fit=crop'} 
                     alt={produto.nome} 
                     className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500"
                   />
-                  {/* Badge vinda diretamente da propriedade do Banco */}
                   <span className="absolute top-4 left-4 bg-zinc-950/80 backdrop-blur-md border border-zinc-800 text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md text-purple-400">
                     {produto.categoria || 'Geral'}
                   </span>
@@ -226,9 +262,102 @@ function App() {
         )}
       </main>
 
+      {/* MODAL DE CADASTRAR PRODUTO */}
+      {modalAberta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setModalAberta(false)}></div>
+
+          <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl z-10">
+            <div className="flex justify-between items-center pb-4 border-b border-zinc-800 mb-6">
+              <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+                <PackagePlus className="w-5 h-5 text-purple-500" /> Cadastrar Novo Produto
+              </h3>
+              <button onClick={() => setModalAberta(false)} className="text-zinc-400 hover:text-zinc-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCadastrarProduto} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1">Nome do Produto</label>
+                <input 
+                  type="text" required
+                  value={novoProduto.nome}
+                  onChange={e => setNovoProduto({...novoProduto, nome: e.target.value})}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
+                  placeholder="Ex: Teclado Keychron K2"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Preço (R$)</label>
+                  <input 
+                    type="number" step="0.01" required
+                    value={novoProduto.preco}
+                    onChange={e => setNovoProduto({...novoProduto, preco: e.target.value})}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
+                    placeholder="599.90"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Categoria</label>
+                  <select 
+                    value={novoProduto.categoria}
+                    onChange={e => setNovoProduto({...novoProduto, categoria: e.target.value})}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="Periféricos">Periféricos</option>
+                    <option value="Monitores">Monitores</option>
+                    <option value="Hardware">Hardware</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1">URL da Imagem</label>
+                <input 
+                  type="url" required
+                  value={novoProduto.imagemUrl}
+                  onChange={e => setNovoProduto({...novoProduto, imagemUrl: e.target.value})}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
+                  placeholder="https://images.unsplash.com/..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1">Descrição</label>
+                <textarea 
+                  rows="3" required
+                  value={novoProduto.descricao}
+                  onChange={e => setNovoProduto({...novoProduto, descricao: e.target.value})}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500 resize-none"
+                  placeholder="Detalhes técnicos sobre o produto..."
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+                <button 
+                  type="button" 
+                  onClick={() => setModalAberta(false)}
+                  className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-zinc-100 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-5 py-2 rounded-lg transition-all"
+                >
+                  Salvar Produto
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* PAINEL LATERAL DO CARRINHO */}
       <div className={`fixed inset-0 z-50 transition-visibility duration-300 ${carrinhoAberto ? 'visible' : 'invisible'}`}>
-      
         <div 
           onClick={() => setCarrinhoAberto(false)}
           className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${carrinhoAberto ? 'opacity-100' : 'opacity-0'}`}
@@ -337,18 +466,6 @@ function App() {
           <div className="text-center md:text-left">
             <h4 className="text-sm font-bold tracking-widest text-zinc-300">PLMARKET</h4>
             <p className="text-xs text-zinc-500 mt-1">© 2026 PLMARKET. Desenvolvido para fins de portfólio.</p>
-          </div>
-          <div className="flex gap-4">
-            <a href="#" aria-label="GitHub" className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-purple-400 hover:border-purple-500/30 transition-all">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.0.082-.0.082.906.105 1.79 1.05 1.79 1.18 1.947 1.83 1.532 2.147 1.17.118-.808.443-1.343.801-1.652-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-              </svg>
-            </a>
-            <a href="#" aria-label="LinkedIn" className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-purple-400 hover:border-purple-500/30 transition-all">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
-              </svg>
-            </a>
           </div>
         </div>
       </footer>
