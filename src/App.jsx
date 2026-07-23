@@ -1,16 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { produtoService } from './services/produtoService';
+import { ProductModal } from './components/ProductModal';
+import { ProductCard } from './components/ProductCard'; // Import do novo componente isolado
 import { 
-  ShoppingBag, 
-  Search, 
-  User, 
-  ChevronRight, 
-  SlidersHorizontal,
-  X,
-  Plus,
-  Minus,
-  Trash2,
-  PackagePlus
+  ShoppingBag, Search, User, ChevronRight, SlidersHorizontal, 
+  X, Plus, Minus, Trash2, PackagePlus 
 } from 'lucide-react';
 
 function App() {
@@ -21,47 +15,73 @@ function App() {
   const [carrinho, setCarrinho] = useState([]);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
 
-  // ESTADOS DA MODAL DE CADASTRO
   const [modalAberta, setModalAberta] = useState(false);
-  const [novoProduto, setNovoProduto] = useState({
-    nome: '',
-    descricao: '',
-    preco: '',
-    imagemUrl: '',
-    categoria: 'Periféricos'
+  const [produtoEmEdicaoId, setProdutoEmEdicaoId] = useState(null);
+  const [formProduto, setFormProduto] = useState({
+    nome: '', descricao: '', preco: '', imagemUrl: '', categoria: 'Periféricos'
   });
 
-  const buscarProdutos = () => {
-    axios.get('http://localhost:8080/api/produtos')
-      .then(response => setProdutos(response.data))
-      .catch(error => console.error("Erro ao buscar produtos:", error));
+  const carregarProdutos = async () => {
+    try {
+      const data = await produtoService.listarTodos();
+      setProdutos(data);
+    } catch (error) {
+      console.error("Erro ao buscar produtos:", error);
+    }
   };
 
   useEffect(() => {
-    buscarProdutos();
+    carregarProdutos();
   }, []);
 
   const categorias = ['Todos', 'Periféricos', 'Monitores', 'Hardware'];
 
-  // Submeter Novo Produto para a API
-  const handleCadastrarProduto = (e) => {
+  const handleAbrirModalNovo = () => {
+    setProdutoEmEdicaoId(null);
+    setFormProduto({ nome: '', descricao: '', preco: '', imagemUrl: '', categoria: 'Periféricos' });
+    setModalAberta(true);
+  };
+
+  const handleAbrirModalEditar = (produto) => {
+    setProdutoEmEdicaoId(produto.id);
+    setFormProduto({
+      nome: produto.nome,
+      descricao: produto.descricao,
+      preco: produto.preco,
+      imagemUrl: produto.imagemUrl,
+      categoria: produto.categoria || 'Periféricos'
+    });
+    setModalAberta(true);
+  };
+
+  // Lógica de Deletar Produto
+  const handleDeletarProduto = async (id) => {
+    if (window.confirm("Tem certeza que deseja excluir este produto?")) {
+      try {
+        await produtoService.deletar(id);
+        setProdutos(prev => prev.filter(p => p.id !== id));
+      } catch (error) {
+        console.error("Erro ao deletar produto:", error);
+      }
+    }
+  };
+
+  const handleSalvarProduto = async (e) => {
     e.preventDefault();
+    const dadosEnvio = { ...formProduto, preco: parseFloat(formProduto.preco) };
 
-    const dadosEnvio = {
-      ...novoProduto,
-      preco: parseFloat(novoProduto.preco)
-    };
-
-    axios.post('http://localhost:8080/api/produtos', dadosEnvio)
-      .then(response => {
-        setProdutos(prev => [...prev, response.data]); // Adiciona na lista sem precisar recarregar
-        setModalAberta(false); // Fecha a modal
-        setNovoProduto({ nome: '', descricao: '', preco: '', imagemUrl: '', categoria: 'Periféricos' }); // Limpa form
-      })
-      .catch(error => {
-        console.error("Erro ao cadastrar produto:", error);
-        alert("Erro ao cadastrar produto. Verifique o console.");
-      });
+    try {
+      if (produtoEmEdicaoId) {
+        const produtoAtualizado = await produtoService.atualizar(produtoEmEdicaoId, dadosEnvio);
+        setProdutos(prev => prev.map(p => p.id === produtoEmEdicaoId ? produtoAtualizado : p));
+      } else {
+        const novo = await produtoService.criar(dadosEnvio);
+        setProdutos(prev => [...prev, novo]);
+      }
+      setModalAberta(false);
+    } catch (error) {
+      console.error("Erro ao salvar produto:", error);
+    }
   };
 
   const produtosFiltrados = produtos.filter(produto => {
@@ -108,7 +128,6 @@ function App() {
       {/* NAVBAR */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-zinc-950/80 border-b border-zinc-900/80 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          
           <div className="flex items-center gap-8">
             <h1 className="text-xl font-bold tracking-widest text-purple-500 cursor-pointer hover:text-purple-400 transition-colors">
               PLMARKET
@@ -133,9 +152,8 @@ function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Botão Novo Produto */}
             <button 
-              onClick={() => setModalAberta(true)}
+              onClick={handleAbrirModalNovo}
               className="flex items-center gap-2 bg-purple-600/10 border border-purple-500/30 hover:bg-purple-600 hover:text-white text-purple-400 text-xs font-semibold px-3 py-2 rounded-lg transition-all duration-300 cursor-pointer"
             >
               <PackagePlus className="w-4 h-4" />
@@ -157,7 +175,6 @@ function App() {
               )}
             </button>
           </div>
-
         </div>
       </header>
 
@@ -183,9 +200,8 @@ function App() {
         </div>
       </section>
 
-      {/* CATÁLOGO */}
+      {/* CATÁLOGO (AQUI MUDOU) */}
       <main id="catalogo" className="max-w-7xl mx-auto py-16 px-6 scroll-mt-20">
-        
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 border-b border-zinc-900 pb-8">
           <div>
             <h3 className="text-2xl font-semibold text-zinc-100">Nosso Catálogo</h3>
@@ -212,47 +228,17 @@ function App() {
           </div>
         </div>
 
+        {/* Em vez de dezenas de linhas de HTML aqui dentro, chamamos o componente <ProductCard /> */}
         {produtosFiltrados.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {produtosFiltrados.map(produto => (
-              <div 
-                key={produto.id} 
-                className="group bg-zinc-900/40 border border-zinc-900 rounded-xl overflow-hidden hover:border-purple-500/30 transition-all duration-300 flex flex-col justify-between hover:shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
-              >
-                <div className="relative overflow-hidden aspect-video">
-                  <img 
-                    src={produto.imagemUrl || 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?q=80&w=600&auto=format&fit=crop'} 
-                    alt={produto.nome} 
-                    className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500"
-                  />
-                  <span className="absolute top-4 left-4 bg-zinc-950/80 backdrop-blur-md border border-zinc-800 text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-md text-purple-400">
-                    {produto.categoria || 'Geral'}
-                  </span>
-                </div>
-
-                <div className="p-6 flex-grow flex flex-col justify-between">
-                  <div>
-                    <h4 className="font-semibold text-lg text-zinc-100 group-hover:text-purple-400 transition-colors duration-300 mb-2">
-                      {produto.nome}
-                    </h4>
-                    <p className="text-sm text-zinc-400 leading-relaxed line-clamp-2">
-                      {produto.descricao}
-                    </p>
-                  </div>
-                  
-                  <div className="flex justify-between items-center mt-6 pt-4 border-t border-zinc-900">
-                    <span className="text-xl font-bold text-zinc-100">
-                      R$ {produto.preco ? produto.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
-                    </span>
-                    <button 
-                      onClick={() => adicionarAoCarrinho(produto)}
-                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm cursor-pointer"
-                    >
-                      Adicionar
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <ProductCard 
+                key={produto.id}
+                produto={produto}
+                onEditar={handleAbrirModalEditar}
+                onDeletar={handleDeletarProduto}
+                onAdicionarAoCarrinho={adicionarAoCarrinho}
+              />
             ))}
           </div>
         ) : (
@@ -262,99 +248,15 @@ function App() {
         )}
       </main>
 
-      {/* MODAL DE CADASTRAR PRODUTO */}
-      {modalAberta && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setModalAberta(false)}></div>
-
-          <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl z-10">
-            <div className="flex justify-between items-center pb-4 border-b border-zinc-800 mb-6">
-              <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                <PackagePlus className="w-5 h-5 text-purple-500" /> Cadastrar Novo Produto
-              </h3>
-              <button onClick={() => setModalAberta(false)} className="text-zinc-400 hover:text-zinc-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCadastrarProduto} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1">Nome do Produto</label>
-                <input 
-                  type="text" required
-                  value={novoProduto.nome}
-                  onChange={e => setNovoProduto({...novoProduto, nome: e.target.value})}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
-                  placeholder="Ex: Teclado Keychron K2"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Preço (R$)</label>
-                  <input 
-                    type="number" step="0.01" required
-                    value={novoProduto.preco}
-                    onChange={e => setNovoProduto({...novoProduto, preco: e.target.value})}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
-                    placeholder="599.90"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 mb-1">Categoria</label>
-                  <select 
-                    value={novoProduto.categoria}
-                    onChange={e => setNovoProduto({...novoProduto, categoria: e.target.value})}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Periféricos">Periféricos</option>
-                    <option value="Monitores">Monitores</option>
-                    <option value="Hardware">Hardware</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1">URL da Imagem</label>
-                <input 
-                  type="url" required
-                  value={novoProduto.imagemUrl}
-                  onChange={e => setNovoProduto({...novoProduto, imagemUrl: e.target.value})}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
-                  placeholder="https://images.unsplash.com/..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1">Descrição</label>
-                <textarea 
-                  rows="3" required
-                  value={novoProduto.descricao}
-                  onChange={e => setNovoProduto({...novoProduto, descricao: e.target.value})}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-purple-500 resize-none"
-                  placeholder="Detalhes técnicos sobre o produto..."
-                ></textarea>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-                <button 
-                  type="button" 
-                  onClick={() => setModalAberta(false)}
-                  className="px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-zinc-100 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-5 py-2 rounded-lg transition-all"
-                >
-                  Salvar Produto
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* COMPONENTE DA MODAL */}
+      <ProductModal 
+        modalAberta={modalAberta}
+        setModalAberta={setModalAberta}
+        produtoEmEdicaoId={produtoEmEdicaoId}
+        formProduto={formProduto}
+        setFormProduto={setFormProduto}
+        handleSalvarProduto={handleSalvarProduto}
+      />
 
       {/* PAINEL LATERAL DO CARRINHO */}
       <div className={`fixed inset-0 z-50 transition-visibility duration-300 ${carrinhoAberto ? 'visible' : 'invisible'}`}>
@@ -364,7 +266,6 @@ function App() {
         ></div>
 
         <div className={`absolute right-0 top-0 bottom-0 w-full max-w-md bg-zinc-900 border-l border-zinc-800 flex flex-col justify-between shadow-2xl transition-transform duration-300 transform ${carrinhoAberto ? 'translate-x-0' : 'translate-x-full'}`}>
-          
           <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-purple-500" />
@@ -456,7 +357,6 @@ function App() {
               </button>
             </div>
           )}
-
         </div>
       </div>
 
