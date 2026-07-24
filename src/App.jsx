@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Toaster, toast } from 'sonner';
 import { produtoService } from './services/produtoService';
 import { ProductModal } from './components/ProductModal';
-import { ProductCard } from './components/ProductCard'; // Import do novo componente isolado
+import { ProductCard } from './components/ProductCard';
+import { ProductSection } from './components/ProductSection';
+import { CategoryBar } from './components/CategoryBar';
 import { 
   ShoppingBag, Search, User, ChevronRight, SlidersHorizontal, 
   X, Plus, Minus, Trash2, PackagePlus 
@@ -11,9 +14,11 @@ function App() {
   const [produtos, setProdutos] = useState([]);
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [busca, setBusca] = useState('');
+  const [ordenacao, setOrdenacao] = useState('padrao'); 
   
   const [carrinho, setCarrinho] = useState([]);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
+  const [vistosRecently, setVistosRecently] = useState([]);
 
   const [modalAberta, setModalAberta] = useState(false);
   const [produtoEmEdicaoId, setProdutoEmEdicaoId] = useState(null);
@@ -26,6 +31,7 @@ function App() {
       const data = await produtoService.listarTodos();
       setProdutos(data);
     } catch (error) {
+      toast.error("Erro ao conectar com o servidor.");
       console.error("Erro ao buscar produtos:", error);
     }
   };
@@ -33,8 +39,6 @@ function App() {
   useEffect(() => {
     carregarProdutos();
   }, []);
-
-  const categorias = ['Todos', 'Periféricos', 'Monitores', 'Hardware'];
 
   const handleAbrirModalNovo = () => {
     setProdutoEmEdicaoId(null);
@@ -54,14 +58,14 @@ function App() {
     setModalAberta(true);
   };
 
-  // Lógica de Deletar Produto
   const handleDeletarProduto = async (id) => {
     if (window.confirm("Tem certeza que deseja excluir este produto?")) {
       try {
         await produtoService.deletar(id);
         setProdutos(prev => prev.filter(p => p.id !== id));
+        toast.success("Produto excluído com sucesso!");
       } catch (error) {
-        console.error("Erro ao deletar produto:", error);
+        toast.error("Não foi possível excluir o produto.");
       }
     }
   };
@@ -74,21 +78,31 @@ function App() {
       if (produtoEmEdicaoId) {
         const produtoAtualizado = await produtoService.atualizar(produtoEmEdicaoId, dadosEnvio);
         setProdutos(prev => prev.map(p => p.id === produtoEmEdicaoId ? produtoAtualizado : p));
+        toast.success("Produto atualizado com sucesso!");
       } else {
         const novo = await produtoService.criar(dadosEnvio);
         setProdutos(prev => [...prev, novo]);
+        toast.success("Produto cadastrado com sucesso!");
       }
       setModalAberta(false);
     } catch (error) {
-      console.error("Erro ao salvar produto:", error);
+      toast.error("Erro ao salvar o produto.");
     }
   };
 
-  const produtosFiltrados = produtos.filter(produto => {
-    const matchesBusca = produto.nome.toLowerCase().includes(busca.toLowerCase());
-    const matchesCategoria = categoriaAtiva === 'Todos' || produto.categoria === categoriaAtiva;
-    return matchesBusca && matchesCategoria;
-  });
+  // Lógica de Filtro e Ordenação
+  const produtosFiltrados = produtos
+    .filter(produto => {
+      const matchesBusca = produto.nome.toLowerCase().includes(busca.toLowerCase());
+      const matchesCategoria = categoriaAtiva === 'Todos' || produto.categoria === categoriaAtiva;
+      return matchesBusca && matchesCategoria;
+    })
+    .sort((a, b) => {
+      if (ordenacao === 'menor-preco') return a.preco - b.preco;
+      if (ordenacao === 'maior-preco') return b.preco - a.preco;
+      if (ordenacao === 'nome') return a.nome.localeCompare(b.nome);
+      return 0;
+    });
 
   const adicionarAoCarrinho = (produto) => {
     setCarrinho(prev => {
@@ -100,7 +114,16 @@ function App() {
       }
       return [...prev, { ...produto, quantidade: 1 }];
     });
-    setCarrinhoAberto(true);
+    
+    // Registrar em vistos recentemente
+    setVistosRecently(prev => {
+      if (!prev.some(p => p.id === produto.id)) {
+        return [produto, ...prev].slice(0, 6);
+      }
+      return prev;
+    });
+
+    toast.success(`${produto.nome} adicionado ao carrinho!`);
   };
 
   const alterarQuantidade = (id, alteracao) => {
@@ -117,6 +140,7 @@ function App() {
 
   const removerDoCarrinho = (id) => {
     setCarrinho(prev => prev.filter(item => item.id !== id));
+    toast.info("Item removido do carrinho.");
   };
 
   const totalItensNoCarrinho = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
@@ -125,6 +149,9 @@ function App() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-purple-500/30 selection:text-purple-200">
       
+      {/* Componente de Toasts/Notificações */}
+      <Toaster position="bottom-right" theme="dark" richColors />
+
       {/* NAVBAR */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-zinc-950/80 border-b border-zinc-900/80 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
@@ -200,35 +227,61 @@ function App() {
         </div>
       </section>
 
-      {/* CATÁLOGO (AQUI MUDOU) */}
-      <main id="catalogo" className="max-w-7xl mx-auto py-16 px-6 scroll-mt-20">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 border-b border-zinc-900 pb-8">
+      {/* CONTEÚDO PRINCIPAL DO E-COMMERCE */}
+      <main id="catalogo" className="max-w-7xl mx-auto py-12 px-6 scroll-mt-20">
+        
+        <CategoryBar 
+          categoriaAtiva={categoriaAtiva} 
+          setCategoriaAtiva={setCategoriaAtiva} 
+        />
+
+        {/* SEÇÃO DINÂMICA: VISTOS RECENTEMENTE / INTERAÇÕES */}
+        {vistosRecently.length > 0 && (
+          <ProductSection 
+            titulo="Relacionados aos itens que você interagiu"
+            subtitulo="Com base nas suas escolhas recentes"
+            produtos={vistosRecently}
+            onEditar={handleAbrirModalEditar}
+            onDeletar={handleDeletarProduto}
+            onAdicionarAoCarrinho={adicionarAoCarrinho}
+          />
+        )}
+
+        {/* SEÇÃO DINÂMICA: DESTAQUES DO MÊS */}
+        <ProductSection 
+          titulo="Mais Cobiçados para o Setup"
+          subtitulo="Os produtos mais buscados da semana"
+          produtos={produtos.slice(0, 5)}
+          onEditar={handleAbrirModalEditar}
+          onDeletar={handleDeletarProduto}
+          onAdicionarAoCarrinho={adicionarAoCarrinho}
+        />
+
+        {/* CABEÇALHO DO CATÁLOGO PRINCIPAL COM ORDENAÇÃO */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-zinc-900 pb-6 pt-6">
           <div>
-            <h3 className="text-2xl font-semibold text-zinc-100">Nosso Catálogo</h3>
-            <p className="text-zinc-400 text-sm mt-1">Selecione produtos de alta performance integrados à nossa API.</p>
+            <h3 className="text-2xl font-semibold text-zinc-100">Todos os Produtos</h3>
+            <p className="text-zinc-400 text-sm mt-1">Exibindo {produtosFiltrados.length} itens no catálogo.</p>
           </div>
 
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-zinc-500 text-sm mr-2 hidden lg:flex items-center gap-1">
-              <SlidersHorizontal className="w-4 h-4" /> Filtrar por:
+          <div className="flex items-center gap-3">
+            <span className="text-zinc-500 text-xs flex items-center gap-1 font-medium">
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Ordenar por:
             </span>
-            {categorias.map(categoria => (
-              <button
-                key={categoria}
-                onClick={() => setCategoriaAtiva(categoria)}
-                className={`text-xs font-semibold px-4 py-2 rounded-full border transition-all duration-300 ${
-                  categoriaAtiva === categoria 
-                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_12px_rgba(147,51,234,0.2)]' 
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                }`}
-              >
-                {categoria}
-              </button>
-            ))}
+            <select
+              value={ordenacao}
+              onChange={(e) => setOrdenacao(e.target.value)}
+              className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-purple-500 cursor-pointer"
+            >
+              <option value="padrao">Destaques</option>
+              <option value="menor-preco">Menor Preço</option>
+              <option value="maior-preco">Maior Preço</option>
+              <option value="nome">Nome (A-Z)</option>
+            </select>
           </div>
         </div>
 
-        {/* Em vez de dezenas de linhas de HTML aqui dentro, chamamos o componente <ProductCard /> */}
+        {/* GRID PRINCIPAL */}
         {produtosFiltrados.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {produtosFiltrados.map(produto => (
@@ -243,12 +296,12 @@ function App() {
           </div>
         ) : (
           <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
-            <p className="text-zinc-500">Nenhum produto encontrado.</p>
+            <p className="text-zinc-500">Nenhum produto encontrado para este filtro.</p>
           </div>
         )}
       </main>
 
-      {/* COMPONENTE DA MODAL */}
+      {/* COMPONENTE DA MODAL DE CRIAÇÃO/EDIÇÃO */}
       <ProductModal 
         modalAberta={modalAberta}
         setModalAberta={setModalAberta}
@@ -350,7 +403,11 @@ function App() {
                 </div>
               </div>
               <button 
-                onClick={() => alert("Compra simulada com sucesso!")}
+                onClick={() => {
+                  toast.success("Pedido realizado com sucesso!");
+                  setCarrinho([]);
+                  setCarrinhoAberto(false);
+                }}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-bold text-sm transition-all hover:shadow-[0_0_20px_rgba(147,51,234,0.3)] cursor-pointer"
               >
                 Finalizar Pedido
