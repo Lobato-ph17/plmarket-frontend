@@ -16,7 +16,10 @@ function App() {
   const [busca, setBusca] = useState('');
   const [ordenacao, setOrdenacao] = useState('padrao'); 
   
-  const [carrinho, setCarrinho] = useState([]);
+  const [carrinho, setCarrinho] = useState(() => {
+    const carrinhoSalvo = localStorage.getItem('@plmarket:carrinho');
+    return carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
+  });
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
   const [vistosRecently, setVistosRecently] = useState([]);
 
@@ -25,6 +28,10 @@ function App() {
   const [formProduto, setFormProduto] = useState({
     nome: '', descricao: '', preco: '', imagemUrl: '', categoria: 'Periféricos'
   });
+
+  useEffect(() => {
+    localStorage.setItem('@plmarket:carrinho', JSON.stringify(carrinho));
+  }, [carrinho]);
 
   const carregarProdutos = async () => {
     try {
