@@ -7,6 +7,7 @@ import { HeroSection } from './components/HeroSection';
 import { CategoryBar } from './components/CategoryBar';
 import { ProductSection } from './components/ProductSection';
 import { ProductCard } from './components/ProductCard';
+import { ProductSkeleton } from './components/ProductSkeleton';
 import { ProductModal } from './components/ProductModal';
 import { CartDrawer } from './components/CartDrawer';
 import { Footer } from './components/Footer';
@@ -15,6 +16,7 @@ import { SlidersHorizontal } from 'lucide-react';
 
 function App() {
   const [produtos, setProdutos] = useState([]);
+  const [loading, setLoading] = useState(true); // 👈 Novo estado de Loading
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [ordenacao, setOrdenacao] = useState('padrao'); 
@@ -26,14 +28,13 @@ function App() {
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
   const [vistosRecently, setVistosRecently] = useState([]);
 
-  // Estados dos Modais
+  // Modais
   const [modalAberta, setModalAberta] = useState(false);
   const [produtoEmEdicaoId, setProdutoEmEdicaoId] = useState(null);
   const [formProduto, setFormProduto] = useState({
     nome: '', descricao: '', preco: '', imagemUrl: '', categoria: 'Periféricos'
   });
 
-  // Estados do Modal de Confirmação de Deleção
   const [confirmModalAberto, setConfirmModalAberto] = useState(false);
   const [produtoParaDeletar, setProdutoParaDeletar] = useState(null);
 
@@ -42,12 +43,15 @@ function App() {
   }, [carrinho]);
 
   const carregarProdutos = async () => {
+    setLoading(true);
     try {
       const data = await produtoService.listarTodos();
       setProdutos(data);
     } catch (error) {
       toast.error("Erro ao conectar com o servidor.");
       console.error("Erro ao buscar produtos:", error);
+    } finally {
+      setLoading(false); // 👈 Finaliza o loading tanto no sucesso quanto no erro
     }
   };
 
@@ -113,7 +117,7 @@ function App() {
     }
   };
 
-
+  // Lógica de Filtro e Ordenação
   const produtosFiltrados = produtos
     .filter(produto => {
       const matchesBusca = produto.nome.toLowerCase().includes(busca.toLowerCase());
@@ -189,7 +193,7 @@ function App() {
           setCategoriaAtiva={setCategoriaAtiva} 
         />
 
-        {vistosRecently.length > 0 && (
+        {!loading && vistosRecently.length > 0 && (
           <ProductSection 
             titulo="Relacionados aos itens que você interagiu"
             subtitulo="Com base nas suas escolhas recentes"
@@ -200,20 +204,24 @@ function App() {
           />
         )}
 
-        <ProductSection 
-          titulo="Mais Cobiçados para o Setup"
-          subtitulo="Os produtos mais buscados da semana"
-          produtos={produtos.slice(0, 5)}
-          onEditar={handleAbrirModalEditar}
-          onDeletar={handleSolicitarDeletar}
-          onAdicionarAoCarrinho={adicionarAoCarrinho}
-        />
+        {!loading && produtos.length > 0 && (
+          <ProductSection 
+            titulo="Mais Cobiçados para o Setup"
+            subtitulo="Os produtos mais buscados da semana"
+            produtos={produtos.slice(0, 5)}
+            onEditar={handleAbrirModalEditar}
+            onDeletar={handleSolicitarDeletar}
+            onAdicionarAoCarrinho={adicionarAoCarrinho}
+          />
+        )}
 
         {/* CABEÇALHO DO CATÁLOGO PRINCIPAL COM ORDENAÇÃO */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-zinc-900 pb-6 pt-6">
           <div>
             <h3 className="text-2xl font-semibold text-zinc-100">Todos os Produtos</h3>
-            <p className="text-zinc-400 text-sm mt-1">Exibindo {produtosFiltrados.length} itens no catálogo.</p>
+            <p className="text-zinc-400 text-sm mt-1">
+              {loading ? "Carregando catálogo..." : `Exibindo ${produtosFiltrados.length} itens no catálogo.`}
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -233,8 +241,14 @@ function App() {
           </div>
         </div>
 
-        {/* GRID PRINCIPAL */}
-        {produtosFiltrados.length > 0 ? (
+        {/* GRID PRINCIPAL: Renders Skeleton ou Cards */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <ProductSkeleton key={index} />
+            ))}
+          </div>
+        ) : produtosFiltrados.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {produtosFiltrados.map(produto => (
               <ProductCard 
