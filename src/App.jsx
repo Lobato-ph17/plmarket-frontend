@@ -13,10 +13,13 @@ import { CartDrawer } from './components/CartDrawer';
 import { Footer } from './components/Footer';
 import { ConfirmModal } from './components/ConfirmModal';
 import { SlidersHorizontal } from 'lucide-react';
+import { Pagination } from './components/Pagination';
 
 function App() {
   const [produtos, setProdutos] = useState([]);
-  const [loading, setLoading] = useState(true); // 👈 Novo estado de Loading
+  const [loading, setLoading] = useState(true);
+  const [paginaAtual, setPaginaAtual] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(1);
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [ordenacao, setOrdenacao] = useState('padrao'); 
@@ -42,22 +45,41 @@ function App() {
     localStorage.setItem('@plmarket:carrinho', JSON.stringify(carrinho));
   }, [carrinho]);
 
-  const carregarProdutos = async () => {
-    setLoading(true);
-    try {
-      const data = await produtoService.listarTodos();
+  const carregarProdutos = async (page = 0) => {
+  setLoading(true);
+  try {
+    const data = await produtoService.listarTodos(page, 6);
+    
+    if (data && Array.isArray(data.content)) {
+      setProdutos(data.content);
+      setTotalPaginas(data.totalPages || 1);
+      setPaginaAtual(data.number || 0);
+    } 
+    else if (Array.isArray(data)) {
       setProdutos(data);
+      setTotalPaginas(1);
+      setPaginaAtual(0);
+    } 
+    else {
+      setProdutos([]);
+    }
     } catch (error) {
       toast.error("Erro ao conectar com o servidor.");
       console.error("Erro ao buscar produtos:", error);
+      setProdutos([]);
     } finally {
-      setLoading(false); // 👈 Finaliza o loading tanto no sucesso quanto no erro
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    carregarProdutos();
-  }, []);
+    carregarProdutos(paginaAtual);
+  }, [paginaAtual]);
+
+  const handleMudarPagina = (novaPagina) => {
+    setPaginaAtual(novaPagina);
+    window.scrollTo({ top: 400, behavior: 'smooth' });
+  };
 
   const handleAbrirModalNovo = () => {
     setProdutoEmEdicaoId(null);
@@ -118,9 +140,11 @@ function App() {
   };
 
   // Lógica de Filtro e Ordenação
-  const produtosFiltrados = produtos
+  const listaProdutos = Array.isArray(produtos) ? produtos : [];
+
+  const produtosFiltrados = listaProdutos
     .filter(produto => {
-      const matchesBusca = produto.nome.toLowerCase().includes(busca.toLowerCase());
+      const matchesBusca = produto.nome ? produto.nome.toLowerCase().includes(busca.toLowerCase()) : true;
       const matchesCategoria = categoriaAtiva === 'Todos' || produto.categoria === categoriaAtiva;
       return matchesBusca && matchesCategoria;
     })
@@ -129,7 +153,7 @@ function App() {
       if (ordenacao === 'maior-preco') return b.preco - a.preco;
       if (ordenacao === 'nome') return a.nome.localeCompare(b.nome);
       return 0;
-    });
+  }); 
 
   const adicionarAoCarrinho = (produto) => {
     setCarrinho(prev => {
@@ -265,6 +289,16 @@ function App() {
             <p className="text-zinc-500">Nenhum produto encontrado para este filtro.</p>
           </div>
         )}
+
+        {/* CONTROLE DE PAGINAÇÃO */}
+          {!loading && (
+            <Pagination 
+              paginaAtual={paginaAtual}
+              totalPaginas={totalPaginas}
+              onPaginaChange={handleMudarPagina}
+            />
+          )}
+          
       </main>
 
       <ProductModal 

@@ -1,9 +1,10 @@
-import api from './api';
+// src/services/produtoService.js
+import { api } from './api';
 
 export const produtoService = {
-  listarTodos: async () => {
-    const response = await api.get('/produtos');
-    return response.data;
+  listarTodos: async (pagina = 0, tamanho = 6) => {
+    const response = await api.get(`/produtos?page=${pagina}&size=${tamanho}`);
+    return response.data; 
   },
 
   criar: async (produto) => {
