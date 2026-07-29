@@ -18,6 +18,7 @@ import { Pagination } from './components/Pagination';
 function App() {
   const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isServidorAcordando, setIsServidorAcordando] = useState(false);
   const [paginaAtual, setPaginaAtual] = useState(0);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
@@ -47,6 +48,10 @@ function App() {
 
   const carregarProdutos = async (page = 0) => {
   setLoading(true);
+  const timerColdStart = setTimeout(() => {
+    setIsServidorAcordando(true);
+  }, 3000);
+
   try {
     const data = await produtoService.listarTodos(page, 6);
     
@@ -64,10 +69,12 @@ function App() {
       setProdutos([]);
     }
     } catch (error) {
-      toast.error("Erro ao conectar com o servidor.");
+      toast.error("O servidor na nuvem está iniciando. Aguarde alguns instantes...");
       console.error("Erro ao buscar produtos:", error);
       setProdutos([]);
     } finally {
+      clearTimeout(timerColdStart);
+      setIsServidorAcordando(false);
       setLoading(false);
     }
   };
@@ -265,29 +272,36 @@ function App() {
           </div>
         </div>
 
-        {/* GRID PRINCIPAL: Renders Skeleton ou Cards */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <ProductSkeleton key={index} />
-            ))}
-          </div>
-        ) : produtosFiltrados.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {produtosFiltrados.map(produto => (
-              <ProductCard 
-                key={produto.id}
-                produto={produto}
-                onEditar={handleAbrirModalEditar}
-                onDeletar={handleSolicitarDeletar}
-                onAdicionarAoCarrinho={adicionarAoCarrinho}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
-            <p className="text-zinc-500">Nenhum produto encontrado para este filtro.</p>
-          </div>
+        {/* AVISO VISUAL SE O RENDER ESTIVER ACORDANDO */}
+          {loading && isServidorAcordando && (
+            <div className="mb-6 p-4 bg-purple-950/30 border border-purple-800/50 rounded-xl text-center text-purple-300 text-xs animate-pulse">
+              🚀 Conectando à API na nuvem... Como o servidor é gratuito, ele pode levar alguns segundos para carregar.
+            </div>
+          )}
+
+        {/* GRID PRINCIPAL: Skeleton | Cards | Empty State */}
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <ProductSkeleton key={index} />
+              ))}
+            </div>
+          ) : produtosFiltrados.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {produtosFiltrados.map(produto => (
+                <ProductCard 
+                  key={produto.id}
+                  produto={produto}
+                  onEditar={handleAbrirModalEditar}
+                  onDeletar={handleSolicitarDeletar}
+                  onAdicionarAoCarrinho={adicionarAoCarrinho}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
+              <p className="text-zinc-500">Nenhum produto encontrado para este filtro.</p>
+            </div>
         )}
 
         {/* CONTROLE DE PAGINAÇÃO */}
