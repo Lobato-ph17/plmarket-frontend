@@ -5,6 +5,7 @@ import { produtoService } from './services/produtoService';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
 import { CategoryBar } from './components/CategoryBar';
+import { FeaturedSection } from './components/FeaturedSection';
 import { ProductSection } from './components/ProductSection';
 import { ProductCard } from './components/ProductCard';
 import { ProductSkeleton } from './components/ProductSkeleton';
@@ -47,27 +48,27 @@ function App() {
   }, [carrinho]);
 
   const carregarProdutos = async (page = 0) => {
-  setLoading(true);
-  const timerColdStart = setTimeout(() => {
-    setIsServidorAcordando(true);
-  }, 3000);
+    setLoading(true);
+    const timerColdStart = setTimeout(() => {
+      setIsServidorAcordando(true);
+    }, 3000);
 
-  try {
-    const data = await produtoService.listarTodos(page, 6);
-    
-    if (data && Array.isArray(data.content)) {
-      setProdutos(data.content);
-      setTotalPaginas(data.totalPages || 1);
-      setPaginaAtual(data.number || 0);
-    } 
-    else if (Array.isArray(data)) {
-      setProdutos(data);
-      setTotalPaginas(1);
-      setPaginaAtual(0);
-    } 
-    else {
-      setProdutos([]);
-    }
+    try {
+      const data = await produtoService.listarTodos(page, 6);
+      
+      if (data && Array.isArray(data.content)) {
+        setProdutos(data.content);
+        setTotalPaginas(data.totalPages || 1);
+        setPaginaAtual(data.number || 0);
+      } 
+      else if (Array.isArray(data)) {
+        setProdutos(data);
+        setTotalPaginas(1);
+        setPaginaAtual(0);
+      } 
+      else {
+        setProdutos([]);
+      }
     } catch (error) {
       toast.error("O servidor na nuvem está iniciando. Aguarde alguns instantes...");
       console.error("Erro ao buscar produtos:", error);
@@ -116,7 +117,7 @@ function App() {
 
     try {
       await produtoService.deletar(produtoParaDeletar);
-      setProdutos(prev => prev.filter(p => p.id !== produtoParaDeletar));
+      setProdutos(prev => Array.isArray(prev) ? prev.filter(p => p.id !== produtoParaDeletar) : []);
       toast.success("Produto excluído com sucesso!");
     } catch (error) {
       toast.error("Não foi possível excluir o produto.");
@@ -133,11 +134,11 @@ function App() {
     try {
       if (produtoEmEdicaoId) {
         const produtoAtualizado = await produtoService.atualizar(produtoEmEdicaoId, dadosEnvio);
-        setProdutos(prev => prev.map(p => p.id === produtoEmEdicaoId ? produtoAtualizado : p));
+        setProdutos(prev => Array.isArray(prev) ? prev.map(p => p.id === produtoEmEdicaoId ? produtoAtualizado : p) : []);
         toast.success("Produto atualizado com sucesso!");
       } else {
         const novo = await produtoService.criar(dadosEnvio);
-        setProdutos(prev => [...prev, novo]);
+        setProdutos(prev => Array.isArray(prev) ? [...prev, novo] : [novo]);
         toast.success("Produto cadastrado com sucesso!");
       }
       setModalAberta(false);
@@ -224,6 +225,7 @@ function App() {
           setCategoriaAtiva={setCategoriaAtiva} 
         />
 
+        {/* VISTOS RECENTEMENTE */}
         {!loading && vistosRecently.length > 0 && (
           <ProductSection 
             titulo="Relacionados aos itens que você interagiu"
@@ -235,19 +237,16 @@ function App() {
           />
         )}
 
-        {!loading && produtos.length > 0 && (
-          <ProductSection 
-            titulo="Mais Cobiçados para o Setup"
-            subtitulo="Os produtos mais buscados da semana"
-            produtos={produtos.slice(0, 5)}
-            onEditar={handleAbrirModalEditar}
-            onDeletar={handleSolicitarDeletar}
-            onAdicionarAoCarrinho={adicionarAoCarrinho}
+        {/* MAIS COBIÇADOS (COMPONENTIZADO) */}
+        {!loading && listaProdutos.length > 0 && (
+          <FeaturedSection 
+            produtos={listaProdutos} 
+            onAdicionarAoCarrinho={adicionarAoCarrinho} 
           />
         )}
 
         {/* CABEÇALHO DO CATÁLOGO PRINCIPAL COM ORDENAÇÃO */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-zinc-900 pb-6 pt-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-zinc-900 pb-6 pt-2">
           <div>
             <h3 className="text-2xl font-semibold text-zinc-100">Todos os Produtos</h3>
             <p className="text-zinc-400 text-sm mt-1">
@@ -273,45 +272,45 @@ function App() {
         </div>
 
         {/* AVISO VISUAL SE O RENDER ESTIVER ACORDANDO */}
-          {loading && isServidorAcordando && (
-            <div className="mb-6 p-4 bg-purple-950/30 border border-purple-800/50 rounded-xl text-center text-purple-300 text-xs animate-pulse">
-              🚀 Conectando à API na nuvem... Como o servidor é gratuito, ele pode levar alguns segundos para carregar.
-            </div>
-          )}
-
-        {/* GRID PRINCIPAL: Skeleton | Cards | Empty State */}
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <ProductSkeleton key={index} />
-              ))}
-            </div>
-          ) : produtosFiltrados.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {produtosFiltrados.map(produto => (
-                <ProductCard 
-                  key={produto.id}
-                  produto={produto}
-                  onEditar={handleAbrirModalEditar}
-                  onDeletar={handleSolicitarDeletar}
-                  onAdicionarAoCarrinho={adicionarAoCarrinho}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
-              <p className="text-zinc-500">Nenhum produto encontrado para este filtro.</p>
-            </div>
+        {loading && isServidorAcordando && (
+          <div className="mb-6 p-4 bg-purple-950/30 border border-purple-800/50 rounded-xl text-center text-purple-300 text-xs animate-pulse">
+            🚀 Conectando à API na nuvem... Como o servidor é gratuito, ele pode levar alguns segundos para carregar.
+          </div>
         )}
 
-        {/* CONTROLE DE PAGINAÇÃO */}
-          {!loading && (
-            <Pagination 
-              paginaAtual={paginaAtual}
-              totalPaginas={totalPaginas}
-              onPaginaChange={handleMudarPagina}
-            />
-          )}
+        {/* GRID PRINCIPAL: Skeleton | Cards | Empty State */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <ProductSkeleton key={index} />
+            ))}
+          </div>
+        ) : produtosFiltrados.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {produtosFiltrados.map(produto => (
+              <ProductCard 
+                key={produto.id}
+                produto={produto}
+                onEditar={handleAbrirModalEditar}
+                onDeletar={handleSolicitarDeletar}
+                onAdicionarAoCarrinho={adicionarAoCarrinho}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
+            <p className="text-zinc-500">Nenhum produto encontrado para este filtro.</p>
+          </div>
+        )}
+
+        {/* CONTROLE DE PAGINAÇÃO COMPONENTIZADO */}
+        {!loading && (
+          <Pagination 
+            paginaAtual={paginaAtual}
+            totalPaginas={totalPaginas}
+            onPaginaChange={handleMudarPagina}
+          />
+        )}
           
       </main>
 
