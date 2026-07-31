@@ -1,5 +1,5 @@
 // src/services/produtoService.js
-import { api } from './api';
+import  api  from './api';
 
 export const produtoService = {
   listarTodos: async (pagina = 0, tamanho = 6) => {
