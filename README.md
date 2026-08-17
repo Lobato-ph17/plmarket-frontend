@@ -91,6 +91,6 @@ O frontend estará acessível em http://localhost:5173.
 
 # Desenvolvido por Pedro Henrique Lobato.
 
-LinkedIn: [linkedin.com/in/seu-perfil](https://linkedin.com/in/lobato-dev/)
+LinkedIn: https://linkedin.com/in/lobato-dev/
 
 Portfolio: https://lobato-phdev.netlify.app/
