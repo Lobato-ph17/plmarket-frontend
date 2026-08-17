@@ -222,7 +222,10 @@ function App() {
       <main id="catalogo" className="max-w-7xl mx-auto py-12 px-6 scroll-mt-20">
         <CategoryBar 
           categoriaAtiva={categoriaAtiva} 
-          setCategoriaAtiva={setCategoriaAtiva} 
+          setCategoriaAtiva={(novaCategoria) => {
+            setCategoriaAtiva(novaCategoria);
+            setPaginaAtual(0);
+          }} 
         />
 
         {/* VISTOS RECENTEMENTE */}

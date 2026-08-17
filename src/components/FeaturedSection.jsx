@@ -1,5 +1,7 @@
 import React from 'react';
 
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80';
+
 export function FeaturedSection({ produtos, onAdicionarAoCarrinho }) {
   if (!produtos || produtos.length === 0) return null;
 
@@ -15,7 +17,6 @@ export function FeaturedSection({ produtos, onAdicionarAoCarrinho }) {
         </div>
       </div>
 
-      {/* CARROSSEL HORIZONTAL DE DESTAQUES */}
       <div className="flex gap-6 overflow-x-auto pb-4 pt-1 scrollbar-thin scrollbar-thumb-purple-900/40 scrollbar-track-zinc-900/50">
         {produtos.slice(0, 5).map((produto) => (
           <div 
@@ -28,8 +29,12 @@ export function FeaturedSection({ produtos, onAdicionarAoCarrinho }) {
 
             <div className="relative h-44 overflow-hidden bg-zinc-950">
               <img 
-                src={produto.imagemUrl} 
+                src={produto.imagemUrl || FALLBACK_IMAGE} 
                 alt={produto.nome}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = FALLBACK_IMAGE;
+                }}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80" />
