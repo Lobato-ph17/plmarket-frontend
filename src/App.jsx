@@ -15,6 +15,7 @@ import { Footer } from './components/Footer';
 import { ConfirmModal } from './components/ConfirmModal';
 import { SlidersHorizontal } from 'lucide-react';
 import { Pagination } from './components/Pagination';
+import { LoginModal } from './components/LoginModal';
 
 function App() {
   const [produtos, setProdutos] = useState([]);
