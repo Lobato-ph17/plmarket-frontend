@@ -25,6 +25,8 @@ function App() {
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [busca, setBusca] = useState('');
   const [ordenacao, setOrdenacao] = useState('padrao'); 
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   
   const [carrinho, setCarrinho] = useState(() => {
     const carrinhoSalvo = localStorage.getItem('@plmarket:carrinho');
@@ -215,6 +217,10 @@ function App() {
         handleAbrirModalNovo={handleAbrirModalNovo} 
         setCarrinhoAberto={setCarrinhoAberto} 
         totalItensNoCarrinho={totalItensNoCarrinho} 
+        isAdmin={isAdmin}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
+        onLogout={() => setIsAdmin(false)}
+        onOpenNovoProduto={() => setIsProductModalOpen(true)}
       />
 
       <HeroSection />
@@ -294,6 +300,7 @@ function App() {
               <ProductCard 
                 key={produto.id}
                 produto={produto}
+                isAdmin={isAdmin}
                 onEditar={handleAbrirModalEditar}
                 onDeletar={handleSolicitarDeletar}
                 onAdicionarAoCarrinho={adicionarAoCarrinho}
@@ -345,6 +352,15 @@ function App() {
       />
 
       <Footer />
+
+      <LoginModal 
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={() => {
+          setIsAdmin(true);
+          toast.success("Modo Administrador ativado!");
+        }}
+      />
 
     </div>
   );
